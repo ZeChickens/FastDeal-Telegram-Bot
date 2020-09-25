@@ -1,4 +1,5 @@
-from telebot import TeleBot
+from telebot import logging, TeleBot, logger
+from telebot.types import Update
 
 from data import Data
 from system import System
@@ -35,8 +36,7 @@ WEBHOOK_SSL_PRIV = './url_private.key'  # Path to the ssl private key
 WEBHOOK_URL_BASE = "https://%s:%s" % (WEBHOOK_HOST, WEBHOOK_PORT)
 WEBHOOK_URL_PATH = "/%s/" % (API_TOKEN)
 
-logger = telebot.logger
-telebot.logger.setLevel(logging.INFO)
+logger.setLevel(logging.INFO)
 
 bot = TeleBot(API_TOKEN)
 
@@ -63,7 +63,7 @@ def index():
 def webhook():
     if flask.request.headers.get('content-type') == 'application/json':
         json_string = flask.request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
+        update = Update.de_json(json_string)
         bot.process_new_updates([update])
         return ''
     else:
@@ -164,15 +164,15 @@ if __name__ == "__main__":
     bot.remove_webhook()
 
     sleep(1)
-	# Set webhook
-	bot.set_webhook(url=WEBHOOK_URL_BASE + WEBHOOK_URL_PATH,
-					certificate=open(WEBHOOK_SSL_CERT, 'r'))
+    # Set webhook
+    bot.set_webhook(url=WEBHOOK_URL_BASE + WEBHOOK_URL_PATH,
+                    certificate=open(WEBHOOK_SSL_CERT, 'r'))
 
-	# Start flask server
-	app.run(host=WEBHOOK_LISTEN,
-			port=WEBHOOK_PORT,
-			ssl_context=(WEBHOOK_SSL_CERT, WEBHOOK_SSL_PRIV),
-			debug=True)
+    # Start flask server
+    app.run(host=WEBHOOK_LISTEN,
+            port=WEBHOOK_PORT,
+            ssl_context=(WEBHOOK_SSL_CERT, WEBHOOK_SSL_PRIV),
+            debug=True)
 
 
 
