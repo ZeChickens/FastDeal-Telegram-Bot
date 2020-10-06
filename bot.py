@@ -84,13 +84,21 @@ def start_bot(message):
 @bot.message_handler(commands=['orders'])
 def orders_list(message):
     chat_id=message.chat.id
-    
+
     system.clear(message=message)
     system.update_client_interaction_time(message)
 
     order.send_order_list(chat_id=chat_id)
-    
 
+@bot.callback_query_handler(func=lambda call: "Main" in call.data.split(";")[0])
+def handle_main_menu_query(call):
+    system.update_client_interaction_time(call.message)
+
+    try:
+        main_menu.process_callback(call)
+    except:
+        oops(call, current_frame=error_logging.currentframe())
+    
 @bot.callback_query_handler(func=lambda call: "Tag" in call.data)
 def handle_tag_query(call):
     system.update_client_interaction_time(call.message)
@@ -149,6 +157,8 @@ def handle_etc_query(call):
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
         except:
             bot.answer_callback_query(call.id, text=data.message.delete_error)
+    elif call.data == "IGNORE":
+        bot.answer_callback_query(call.id)
     else:
         oops(call, current_frame=error_logging.currentframe())
 
