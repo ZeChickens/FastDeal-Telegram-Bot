@@ -388,6 +388,7 @@ class Message:
         self.order_description_status = "<b>Статус: </b>"
         self.order_status_notification = "У вашому замовленні відбулись зміни"
         self.order_status_redaction_rejected = "замовлення не пройшло перевірку редакції"
+        self.order_canceled = "Замовлення успішно скасовано!"
         self.order_formed = (
             "🔅Готово!\n"
             "Ваше замовлення проходить перевірку редакції та власника.\n"
@@ -415,6 +416,8 @@ class Message:
 
         ##############    BUTTONS  #####################
 
+        self.button_back = "Назад"
+
         self.button_start_work = "Розпочати"
         self.button_service_reviews = "Відгуки"
         self.button_service_info = "Інфо"
@@ -428,6 +431,8 @@ class Message:
         self.button_channel_statistic = "Статистика"
         self.button_channel_reviews = "Відгуки"
 
+        self.button_order_my = "Мої замовлення"
+        self.button_order_cancel = "Скасувати замовлення"
         self.button_order_no_photo = "У мене немає фото"
         self.button_order_send_to_redaction = "Надіслати редакції"
         

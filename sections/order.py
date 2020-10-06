@@ -41,31 +41,48 @@ class Order(Section):
             order_id = int(call.data.split(";")[2])
             self.send_order_description(call, order_id=order_id)
 
+        elif action == "List":
+            self.send_order_list(call=call)
+
         else:
-            self.oops(call)
+            self.in_development(call)
             return
 
         self.bot.answer_callback_query(call.id)
 
-    def send_order_list(self, message):
-        client_chat_id = message.chat.id
+    def send_order_list(self, chat_id=None, call=None): 
+        """Send start message with introduction to bot.\n
+        Specify chat_id if it called through command, otherwise
+        specify call if it called after button pressed.
+        """     
+        if call is not None:
+            chat_id = call.message.chat.id
 
-        if client_chat_id == self.data.REDACTION_CHAT_ID:
+        if chat_id == self.data.REDACTION_CHAT_ID:
             where_clause = None #get all orders
         else:
-            client = self.data.get_client(where={"ChatID":client_chat_id})[0]
+            client = self.data.get_client(where={"ChatID":chat_id})[0]
             where_clause = {"ClientID":client.ClientID}
-
         orders = self.data.get_order(where=where_clause)
         
         markup = InlineKeyboardMarkup()
         for order in orders:
             button = self.create_order_description_button(order=order)
             markup.add(button)
-        markup.add(self.create_delete_button())
+
+        # if list is called from main menu than send "Back" button
+        if call is not None:
+            back_button_callback = self.form_main_callback(action="Start", prev_msg_action="Edit")
+            back_button = self.create_back_button(callback_data=back_button_callback)
+            markup.add(back_button)
+        else:
+            markup.add(self.create_delete_button())
 
         text = self.data.message.order_list
-        self.bot.send_message(chat_id=client_chat_id, text=text, reply_markup=markup)
+        if call is None:
+            self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+        else:
+            self.send_message(call=call, text=text, reply_markup=markup)
 
     def send_order_description(self, call, order_id):
         chat_id = call.message.chat.id
@@ -87,22 +104,18 @@ class Order(Section):
 
                     markup.add(refund_button)
 
-        # Delete button
-        markup.add(self.create_delete_button())
+        # Back button
+        back_button_callback = self.form_order_callback(action="List", order_id=None, prev_msg_action="Delete")
+        back_button = self.create_back_button(callback_data=back_button_callback)
+        markup.add(back_button)
 
-        #do smth with previous message (if needed)
-        self.edit_previous_message(call=call)
-
-        if photo is None:
-            self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup, parse_mode="HTML")
-        else:
-            self.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=markup, parse_mode="HTML")
+        self.send_message(call=call, text=text, photo=photo, reply_markup=markup)
 
     def send_order_status_notification(self, chat_id, order_id):
         order = self.data.get_order(where={"OrderID":order_id})[0]
         text = self.data.get_order_status(where={"StatusID":order.Status})[0].Notification
 
-        button = self.create_order_description_button(order, self_destruction=True)
+        button = self.create_order_description_button(order)
         markup = InlineKeyboardMarkup()
         markup.add(button)
 
@@ -120,19 +133,23 @@ class Order(Section):
         step = kwargs["step"]
         date = kwargs["date"]
         channel_id = kwargs["channel_id"]
+        
+        # Keyboard button to cancel order
+        reply_markup = ReplyKeyboardMarkup(resize_keyboard=True)
+        reply_markup.add(KeyboardButton(text=self.data.message.button_order_cancel))
 
-        if message.text != None:
-            if message.text[0] == "/":
-                return
+        if message.text == self.data.message.button_order_cancel:
+            canceled_order_text = self.data.message.order_canceled
+            self.bot.send_message(chat_id=message.chat.id, text=canceled_order_text, reply_markup=ReplyKeyboardRemove())
+            return
 
         if step == 1:
             step += 1
             text = self.data.message.order_wait_photo
             button_text = self.data.message.button_order_no_photo
-            markup = ReplyKeyboardMarkup(resize_keyboard=True)
-            markup.add(KeyboardButton(text=button_text))
-            
-            self.bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode="HTML")
+            reply_markup.add(KeyboardButton(text=button_text))
+
+            self.bot.send_message(chat_id=message.chat.id, text=text, reply_markup=reply_markup, parse_mode="HTML")
             
             self.bot.register_next_step_handler_by_chat_id(message.chat.id, self.process_order_forming, step=step, date=date, channel_id=channel_id)
             return
@@ -141,12 +158,12 @@ class Order(Section):
                 step += 1
                 ad_photo = None
                 text = self.data.message.order_wait_text
-                message = self.bot.send_message(chat_id=message.chat.id, text=text, reply_markup=ReplyKeyboardRemove(), parse_mode="HTML")
+                message = self.bot.send_message(chat_id=message.chat.id, text=text, reply_markup=reply_markup, parse_mode="HTML")
             elif message.content_type == "photo":
                 step += 1
                 ad_photo = message.json['photo'][0]['file_id']
                 text = self.data.message.order_wait_text
-                message = self.bot.send_message(chat_id=message.chat.id, text=text, reply_markup=ReplyKeyboardRemove(), parse_mode="HTML")
+                message = self.bot.send_message(chat_id=message.chat.id, text=text, reply_markup=reply_markup, parse_mode="HTML")
             else:#INCORRECT
                 step -= 1
                 self.process_order_forming(message, step=step, date=date, channel_id=channel_id)#INCORRECT
@@ -183,6 +200,11 @@ class Order(Section):
                 "PostDate":date
             }
 
+            # Remove keyboard
+            temp_msg = self.bot.send_message(chat_id=message.chat.id, text="temp", reply_markup=ReplyKeyboardRemove())
+            self.bot.delete_message(chat_id=temp_msg.chat.id, message_id=temp_msg.message_id)
+            
+            # Start Payment Thread
             payment_thread = Thread(target=self.payment.process_payment,
                                     kwargs={"message":message, "channel_id":channel_id, 
                                     "order_forming":self.complete_order_forming, "content":content})
@@ -206,20 +228,13 @@ class Order(Section):
         markup = InlineKeyboardMarkup()
 
         send_to_redaction_btn_text = self.data.message.button_order_send_to_redaction
-        send_to_redaction_btn_callback = self.form_redaction_callback(action="Neworder", order_id=order_id)
+        send_to_redaction_btn_callback = self.form_redaction_callback(action="Neworder", order_id=order_id, prev_msg_action="Delete")
         send_to_redaction_btn = InlineKeyboardButton(text=send_to_redaction_btn_text, callback_data=send_to_redaction_btn_callback)
         markup.add(send_to_redaction_btn)
 
         self.bot.send_message(chat_id=client_chat_id, text=text, reply_markup=markup)
 
         return order_id
-
-    def edit_previous_message(self, call):
-        chat_id = call.message.chat.id
-        message_id = call.message.message_id
-        prev_msg_action = call.data.split(";")[-1]
-        if prev_msg_action == "Delete":
-            self.bot.delete_message(chat_id, message_id)  
 
     def form_order_description(self, order_id):
         def get_delimiter(length=10):
@@ -255,7 +270,7 @@ class Order(Section):
 
         return text, order.Photo
 
-    def create_order_description_button(self, order, self_destruction=False):
+    def create_order_description_button(self, order):
         def get_status_emoji(order_status):
             if order_status <= -1:
                 return "✖️"
@@ -276,8 +291,7 @@ class Order(Section):
         emoji = get_status_emoji(order_status=order.Status)
         btn_text = f"{ch_name} {emoji}"
 
-        prev_msg_action = "Delete" if self_destruction else "None"
-        callback = self.form_order_callback(action="Description", order_id=order.OrderID, prev_msg_action=prev_msg_action)
+        callback = self.form_order_callback(action="Description", order_id=order.OrderID, prev_msg_action="Delete")
 
         return InlineKeyboardButton(text=btn_text, callback_data=callback)
 
@@ -296,25 +310,21 @@ class Calendar(Section):
             self.send_date_confirmation(call, channel_id=channel_id)
 
         elif action == "Scroll":
-            direction = info[-1]
+            direction = info[7]
             self.scroll_calendar(call, channel_id=channel_id, direction=direction)
 
         else:
-            self.oops(call)
+            self.in_development(call)
             return
         
         self.bot.answer_callback_query(call.id)
 
-    def send_calendar(self, call, channel_id, month=None, year=None, edit=False):
+    def send_calendar(self, call, channel_id, month=None, year=None):
         now = datetime.now()
         year = now.year if year is None else year
         month = now.month if month is None else month
 
-        #do smth with previous message (if needed)
-        self.edit_previous_message(call=call)
-
         data_ignore = "IGNORE"
-
         markup = {"inline_keyboard": []}
 
         # First row - Month and Year
@@ -338,7 +348,8 @@ class Calendar(Section):
                     is_available = self.check_order_date_availability(channel_id=channel_id, day=day, month=month, year=year)
                     if is_available is True:
                         callback = self.form_calendar_callback(action="Select", channel_id=channel_id,
-                                                               day=day, month=month, year=year)
+                                                               day=day, month=month, year=year,
+                                                               prev_msg_action="Edit")
                         row.append({"text": f"{day}", "callback_data": callback})
                     else:
                         row.append({"text": "✖️", "callback_data": data_ignore})
@@ -346,9 +357,11 @@ class Calendar(Section):
 
         # Last row - Buttons
         left_callback = self.form_calendar_callback(action="Scroll", channel_id=channel_id,
-                                                    day=day, month=month, year=year, direction="Left")
+                                                    day=day, month=month, year=year, direction="Left",
+                                                    prev_msg_action="Edit")
         right_callback = self.form_calendar_callback(action="Scroll", channel_id=channel_id,
-                                                    day=day, month=month, year=year, direction="Right")
+                                                    day=day, month=month, year=year, direction="Right",
+                                                    prev_msg_action="Edit")
         row = [{"text": "<", "callback_data": left_callback},
                {"text": "❌", "callback_data": "DELETE"},
                {"text": ">", "callback_data": right_callback}]
@@ -357,10 +370,7 @@ class Calendar(Section):
 
         markup = json.dumps(markup, ensure_ascii=False)
         text = self.data.message.calendar_choose_date
-        if edit:
-            self.bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
-        else:
-            self.bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup)
+        self.send_message(call=call, text=text, reply_markup=markup)
 
     def scroll_calendar(self, call, channel_id, direction):
         month = int(call.data.split(";")[5])
@@ -378,7 +388,7 @@ class Calendar(Section):
             month = 1
             year += 1
 
-        self.send_calendar(call, channel_id=channel_id, month=month, year=year, edit=True)
+        self.send_calendar(call, channel_id=channel_id, month=month, year=year)
 
     def send_date_confirmation(self, call, channel_id):
         day = int(call.data.split(";")[4])
@@ -395,10 +405,7 @@ class Calendar(Section):
         decline_button = InlineKeyboardButton(text="❌", callback_data=decline_callback)
         markup.add(confirm_button, decline_button)
 
-        chat_id = call.message.chat.id
-        message_id = call.message.message_id
-        self.bot.edit_message_text(chat_id=chat_id, message_id=message_id, 
-                                      text=text, reply_markup=markup, parse_mode="HTML")
+        self.send_message(call=call, text=text, reply_markup=markup)
 
     # Overwrite for Calendar
     def form_order_callback(self, action, channel_id, day=None, month=None, year=None, prev_msg_action=None):
@@ -417,13 +424,6 @@ class Calendar(Section):
             return False
 
         return True
-
-    def edit_previous_message(self, call):
-        chat_id = call.message.chat.id
-        message_id = call.message.message_id
-        prev_msg_action = call.data.split(";")[-1]
-        if prev_msg_action == "Delete":
-            self.bot.delete_message(chat_id, message_id) 
 
 class Payment:
 
@@ -458,8 +458,8 @@ class Payment:
             refund_thread.start()
 
         else:
-            oops_text = self.data.message.oops
-            self.bot.answer_callback_query(call.id, text=oops_text)
+            in_development_text = self.data.message.under_development
+            self.bot.answer_callback_query(call.id, text=in_development_text)
             return
 
         self.bot.answer_callback_query(call.id)

@@ -32,25 +32,25 @@ class Channel(Section):
             self.scroll_channel_content(call=call, channel_id=channel_id, direction=direction, current_section_tag_id=current_section_tag_id)
 
         else:
-            self.oops(call)
+            self.in_development(call)
             return
         
         self.bot.answer_callback_query(call.id)
 
-    def send_channel_content(self, call, channel_id, current_section_tag_id, delete_prev_msg=False):
-        chat_id = call.message.chat.id
-    
+    def send_channel_content(self, call, channel_id, current_section_tag_id):
+        markup = InlineKeyboardMarkup()
+
+        # Get current channel and ID of neighbors channels
         current_channel = self.data.get_channel(where={"ChannelID":channel_id})[0]
         all_channels_in_section = self.data.get_channel(where=self.get_tag_filter(tag_id=current_section_tag_id), 
                                                         signs=["=", ">"])
         first_channel_id = all_channels_in_section[0].ChannelID
         last_channel_id = all_channels_in_section[-1].ChannelID
-        
-        text, photo = self.create_channel_description(channel=current_channel)
-        markup = InlineKeyboardMarkup()
 
-        #заборонені теми
-        forbiden_topics_callback = self.form_channel_callback(action="ForbiddenTopics", channel_id=channel_id, current_section_tag_id=current_section_tag_id)
+        # Заборонені теми
+        forbiden_topics_callback = self.form_channel_callback(action="ForbiddenTopics", channel_id=channel_id, 
+                                                              current_section_tag_id=current_section_tag_id,
+                                                              prev_msg_action="Delete")
         forbiden_topics_text = self.data.message.button_channel_forbidden_topics
         forbiden_topics_btn = InlineKeyboardButton(text=forbiden_topics_text, callback_data=forbiden_topics_callback)
         markup.add(forbiden_topics_btn)
@@ -67,43 +67,48 @@ class Channel(Section):
         #reviews_button = InlineKeyboardButton(text=reviews_text, callback_data=reviews_callback)
         #markup.add(reviews_button)
         
-        #замовити
+        # Замовити
         order_callback = self.form_order_callback(action="Start", channel_id=channel_id)
         order_text = self.data.message.button_channel_order
         order_button = InlineKeyboardButton(text=order_text, callback_data=order_callback)
         markup.add(order_button)
 
-        #footer (⬅️ ❌ ➡️)
+        # Footer (⬅️ Назад ➡️)
         if current_channel.ChannelID == first_channel_id:
-            left_arrow_callback = self.form_channel_callback(action="Scroll", channel_id=channel_id, current_section_tag_id=current_section_tag_id, direction="FirstPage")
+            left_arrow_callback = self.form_channel_callback(action="Scroll", channel_id=channel_id, 
+                                                             current_section_tag_id=current_section_tag_id, 
+                                                             direction="FirstPage")
             left_arrow_text = "✖️"
             left_arrow_btn = InlineKeyboardButton(text=left_arrow_text, callback_data=left_arrow_callback)
         else:
-            left_arrow_callback = self.form_channel_callback(action="Scroll", channel_id=channel_id, current_section_tag_id=current_section_tag_id, direction="Left")
+            left_arrow_callback = self.form_channel_callback(action="Scroll", channel_id=channel_id, 
+                                                             current_section_tag_id=current_section_tag_id, 
+                                                             direction="Left", prev_msg_action="Delete")
             left_arrow_text = "⬅️"
             left_arrow_btn = InlineKeyboardButton(text=left_arrow_text, callback_data=left_arrow_callback)
         
-        delete_btn = self.create_delete_button()
+        back_btn_callback = self.form_tag_callback(action="Select", tag_id=current_section_tag_id,
+                                                   prev_msg_action="Delete")
+        back_btn = self.create_back_button(callback_data=back_btn_callback)
 
         if current_channel.ChannelID == last_channel_id:
-            right_arrow_callback = self.form_channel_callback(action="Scroll", channel_id=channel_id, current_section_tag_id=current_section_tag_id, direction="LastPage")
+            right_arrow_callback = self.form_channel_callback(action="Scroll", channel_id=channel_id, 
+                                                              current_section_tag_id=current_section_tag_id, 
+                                                              direction="LastPage")
             right_arrow_text = "✖️"
             right_arrow_btn = InlineKeyboardButton(text=right_arrow_text, callback_data=right_arrow_callback)
         else:
-            right_arrow_callback = self.form_channel_callback(action="Scroll", channel_id=channel_id, current_section_tag_id=current_section_tag_id, direction="Right")
+            right_arrow_callback = self.form_channel_callback(action="Scroll", channel_id=channel_id, 
+                                                              current_section_tag_id=current_section_tag_id, 
+                                                              direction="Right", prev_msg_action="Delete")
             right_arrow_text = "➡️"
             right_arrow_btn = InlineKeyboardButton(text=right_arrow_text, callback_data=right_arrow_callback)
         
-        #send message
-        markup.add(left_arrow_btn, delete_btn, right_arrow_btn)
+        markup.add(left_arrow_btn, back_btn, right_arrow_btn)
 
-        if delete_prev_msg:
-            self.bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-        if photo is not None:
-            self.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=markup, parse_mode="HTML")
-        else:
-            self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup, parse_mode="HTML")
-            print("Failed to load photo")
+        # Send message
+        text, photo = self.create_channel_description(channel=current_channel)
+        self.send_message(call=call, text=text, photo=photo, reply_markup=markup)
 
     def scroll_channel_content(self, call, channel_id, current_section_tag_id, direction):
         if direction == "FirstPage":
@@ -127,19 +132,16 @@ class Channel(Section):
         
         next_channel_id = all_channels_in_section[next_channel_index].ChannelID
 
-        self.send_channel_content(call=call, channel_id=next_channel_id, current_section_tag_id=current_section_tag_id, delete_prev_msg=True)
+        self.send_channel_content(call=call, channel_id=next_channel_id, current_section_tag_id=current_section_tag_id)
 
     def send_channel_forbidden_topics(self, call, channel_id):
-        under_dev = self.data.message.under_development
-        self.bot.answer_callback_query(call.id, text=under_dev)
+        self.in_development(call)
 
     def send_channel_stats(self, call, channel_id):
-        under_dev = self.data.message.under_development
-        self.bot.answer_callback_query(call.id, text=under_dev)
+        self.in_development(call)
 
     def send_channel_reviews(self, call, channel_id):
-        under_dev = self.data.message.under_development
-        self.bot.answer_callback_query(call.id, text=under_dev)
+        self.in_development(call)
 
     def get_tag_filter(self, tag_id):
         if tag_id == self.TAG_POPULAR:
@@ -196,5 +198,5 @@ class Channel(Section):
         return text, photo
 
     # Overwrite for channel
-    def form_order_callback(self, action, channel_id):
-        return f"Order;{action};{channel_id}"
+    def form_order_callback(self, action, channel_id, prev_msg_action=None):
+        return f"Order;{action};{channel_id};{prev_msg_action}"

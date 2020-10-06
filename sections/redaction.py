@@ -30,7 +30,7 @@ class Redaction(Section):
             self.reject_order(call, order_id=order_id)
         
         else:
-            self.oops(call)
+            self.in_development(call)
             return
 
         self.bot.answer_callback_query(call.id)
@@ -50,7 +50,7 @@ class Redaction(Section):
         markup = InlineKeyboardMarkup()
         text_to_redaction = self.data.message.redaction_new_order_notification
         btn_text = self.data.message.button_redaction_new_order
-        btn_callback = self.form_redaction_callback(action="Description", order_id=order_id)
+        btn_callback = self.form_redaction_callback(action="Description", order_id=order_id, prev_msg_action="Delete")
         btn = InlineKeyboardButton(text=btn_text, callback_data=btn_callback)
         markup.add(btn)
         self.bot.send_message(chat_id=self.REDACTION_CHAT_ID, text=text_to_redaction, reply_markup=markup, parse_mode="HTML")
@@ -64,43 +64,41 @@ class Redaction(Section):
         client = self.data.get_client(where={"ClientID":order.ClientID})[0]
         client_chat_id = client.ChatID
 
-        #redaction
+        # redaction
         text = self.data.message.redaction_results_sent_to_client
         self.bot.send_message(chat_id=self.REDACTION_CHAT_ID, text=text)
 
-        #client
-        self.order.send_order_status_notification(chat_id=client_chat_id, order_id=order_id)
+        # client
+        #self.order.send_order_status_notification(chat_id=client_chat_id, order_id=order_id)
 
     def send_order_description(self, call, order_id):
-        chat_id = self.REDACTION_CHAT_ID
-        self.bot.delete_message(chat_id, call.message.message_id)
-
         text, photo = self.order.form_order_description(order_id=order_id)
         markup = InlineKeyboardMarkup()
         
         confirm_button_text = "✅"
-        confirm_button_callback = self.form_redaction_callback(action="Confirm", order_id=order_id)
+        confirm_button_callback = self.form_redaction_callback(action="Confirm", order_id=order_id, prev_msg_action="Edit")
         confirm_button = InlineKeyboardButton(text=confirm_button_text, callback_data=confirm_button_callback)
 
         reject_button_text = "❌"
-        reject_button_callback = self.form_redaction_callback(action="Reject", order_id=order_id)
+        reject_button_callback = self.form_redaction_callback(action="Reject", order_id=order_id, prev_msg_action="Edit")
         reject_button = InlineKeyboardButton(text=reject_button_text, callback_data=reject_button_callback)
         
         markup.add(confirm_button, reject_button)
 
-        if photo is not None:
-            self.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=markup, parse_mode="HTML")
-        else:
-            self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup, parse_mode="HTML")
+        # Back button
+        back_button_callback = self.form_order_callback(action="List", order_id=None, prev_msg_action="Delete")
+        back_button = self.create_back_button(callback_data=back_button_callback)
+        markup.add(back_button)
+
+        self.send_message(call=call, text=text, photo=photo, reply_markup=markup)
 
     def confirm_order(self, call, order_id):
-        self.bot.edit_message_reply_markup(chat_id=self.REDACTION_CHAT_ID, message_id=call.message.message_id, reply_markup=None)
-        
         order = self.data.get_order(where={"OrderID":order_id})[0]
         client = self.data.get_client(where={"ClientID":order.ClientID})[0]
         client_chat_id = client.ChatID
 
         #redaction
+        self.send_message(call, text=call.message.text, reply_markup=None)
         notify_another_bot_text = self.data.message.form_redaction_confirm_order(order_id)
         self.bot.send_message(chat_id=self.REDACTION_CHAT_ID, text=notify_another_bot_text)
 
@@ -109,12 +107,11 @@ class Redaction(Section):
         self.order.send_order_status_notification(chat_id=client_chat_id, order_id=order_id)
 
     def reject_order(self, call, order_id):
-        self.bot.edit_message_reply_markup(chat_id=self.REDACTION_CHAT_ID, message_id=call.message.message_id, reply_markup=None)
-
         order = self.data.get_order(where={"OrderID":order_id})[0]
         client = self.data.get_client(where={"ClientID":order.ClientID})[0]
         client_chat_id = client.ChatID
 
+        self.send_message(call, text=call.message.text, reply_markup=None)
         input_reject_reason_text = self.data.message.redaction_reject_reason
         message = self.bot.send_message(chat_id=self.REDACTION_CHAT_ID, text=input_reject_reason_text)
         
