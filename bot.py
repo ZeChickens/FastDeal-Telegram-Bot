@@ -76,7 +76,7 @@ def start_bot(message):
         redaction.command_in_group_error()
         return
     system.add_client(message)
-    main_menu.send_start_message(message)
+    main_menu.send_start_message(chat_id=message.chat.id)
     
     system.clear(message=message)
     system.update_client_interaction_time(message)
