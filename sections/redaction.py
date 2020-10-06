@@ -13,7 +13,7 @@ class Redaction(Section):
 
     def process_callback(self, call):
         #Redaction;{action};{order_id}
-        action, order_id = call.data.split(";")[1:]
+        action, order_id = call.data.split(";")[1:3]
         chat_id = call.message.chat.id
 
         if action == "Neworder":
