@@ -14,14 +14,9 @@ class Redaction(Section):
     def process_callback(self, call):
         #Redaction;{action};{order_id}
         action, order_id = call.data.split(";")[1:3]
-        chat_id = call.message.chat.id
 
         if action == "Neworder":
-            message = call.message
-            self.send_new_order(message, order_id=order_id)
-
-        elif action == "Description":
-            self.send_order_description(call, order_id=order_id)
+            self.send_new_order(call=call, order_id=order_id)
 
         elif action == "Confirm":
             self.confirm_order(call, order_id=order_id)
@@ -42,22 +37,19 @@ class Redaction(Section):
             order_id = int(text.split("_")[1].split("@")[0])
             self.send_completed_order(chat_id=message.chat.id, order_id=order_id)
 
-    def send_new_order(self, message, order_id):
-        client_chat_id = message.chat.id
-        message_id = message.message_id
-        
+    def send_new_order(self, call, order_id):
         #in redaction
         markup = InlineKeyboardMarkup()
         text_to_redaction = self.data.message.redaction_new_order_notification
         btn_text = self.data.message.button_redaction_new_order
-        btn_callback = self.form_redaction_callback(action="Description", order_id=order_id, prev_msg_action="Delete")
+        btn_callback = self.form_order_callback(action="Description", order_id=order_id, prev_msg_action="Delete")
         btn = InlineKeyboardButton(text=btn_text, callback_data=btn_callback)
         markup.add(btn)
         self.bot.send_message(chat_id=self.REDACTION_CHAT_ID, text=text_to_redaction, reply_markup=markup, parse_mode="HTML")
 
         #in client
         text_to_client = self.data.message.order_sent_to_redaction
-        self.bot.edit_message_text(chat_id=client_chat_id, message_id=message_id, text=text_to_client, reply_markup=None, parse_mode="HTML")
+        self.send_message(call, text=text_to_client)
 
     def send_completed_order(self, chat_id, order_id):
         order = self.data.get_order(where={"OrderID":order_id})[0]
@@ -70,27 +62,6 @@ class Redaction(Section):
 
         # client
         #self.order.send_order_status_notification(chat_id=client_chat_id, order_id=order_id)
-
-    def send_order_description(self, call, order_id):
-        text, photo = self.order.form_order_description(order_id=order_id)
-        markup = InlineKeyboardMarkup()
-        
-        confirm_button_text = "✅"
-        confirm_button_callback = self.form_redaction_callback(action="Confirm", order_id=order_id, prev_msg_action="Edit")
-        confirm_button = InlineKeyboardButton(text=confirm_button_text, callback_data=confirm_button_callback)
-
-        reject_button_text = "❌"
-        reject_button_callback = self.form_redaction_callback(action="Reject", order_id=order_id, prev_msg_action="Edit")
-        reject_button = InlineKeyboardButton(text=reject_button_text, callback_data=reject_button_callback)
-        
-        markup.add(confirm_button, reject_button)
-
-        # Back button
-        back_button_callback = self.form_order_callback(action="List", order_id=None, prev_msg_action="Delete")
-        back_button = self.create_back_button(callback_data=back_button_callback)
-        markup.add(back_button)
-
-        self.send_message(call=call, text=text, photo=photo, reply_markup=markup)
 
     def confirm_order(self, call, order_id):
         order = self.data.get_order(where={"OrderID":order_id})[0]

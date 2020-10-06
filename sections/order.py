@@ -89,20 +89,16 @@ class Order(Section):
         text, photo = self.form_order_description(order_id=order_id)
         markup = InlineKeyboardMarkup()
 
-        # Refund button in Redaction
+        # If called in Redaction then display special buttons
         if chat_id == self.data.REDACTION_CHAT_ID:
-            payment = self.data.get_payment(where={"OrderID":order_id})
-            if len(payment) > 0:
-                payment = payment[0]
-                payment_transaction_status = payment.TransactionStatus
-
-                if payment_transaction_status == "Approved":
-                    payment_id = payment.PaymentID
-                    refund_button_text = self.data.message.button_payment_refund
-                    refund_button_callback = self.form_payment_callback(action="Refund", payment_id=payment_id)
-                    refund_button = InlineKeyboardButton(text=refund_button_text, callback_data=refund_button_callback)
-
-                    markup.add(refund_button)
+            order = self.data.get_order(where={"OrderID":order_id})[0]
+            redaction_buttons = self.create_redaction_buttons(order=order)
+            for button in redaction_buttons:
+                # if few button in a row
+                if isinstance(button, list):
+                    markup.add(*button)
+                else:
+                    markup.add(button)
 
         # Back button
         back_button_callback = self.form_order_callback(action="List", order_id=None, prev_msg_action="Delete")
@@ -228,7 +224,7 @@ class Order(Section):
         markup = InlineKeyboardMarkup()
 
         send_to_redaction_btn_text = self.data.message.button_order_send_to_redaction
-        send_to_redaction_btn_callback = self.form_redaction_callback(action="Neworder", order_id=order_id, prev_msg_action="Delete")
+        send_to_redaction_btn_callback = self.form_redaction_callback(action="Neworder", order_id=order_id, prev_msg_action="Edit")
         send_to_redaction_btn = InlineKeyboardButton(text=send_to_redaction_btn_text, callback_data=send_to_redaction_btn_callback)
         markup.add(send_to_redaction_btn)
 
@@ -269,6 +265,36 @@ class Order(Section):
         text += f"<b>{self.data.message.order_description_status}</b>{order_status}\n"
 
         return text, order.Photo
+
+    def create_redaction_buttons(self, order):
+        order_id = order.OrderID
+        buttons = list()
+
+        # REFUND Button
+        payment = self.data.get_payment(where={"OrderID":order_id})
+        if len(payment) > 0:
+            payment = payment[0]
+            payment_transaction_status = payment.TransactionStatus
+            if payment_transaction_status == "Approved":
+                payment_id = payment.PaymentID
+                refund_button_text = self.data.message.button_payment_refund
+                refund_button_callback = self.form_payment_callback(action="Refund", payment_id=payment_id)
+                refund_button = InlineKeyboardButton(text=refund_button_text, callback_data=refund_button_callback)
+                buttons += [refund_button]
+
+        
+        # Confirm and reject order
+        if order.Status == 0:
+            confirm_button_text = "✅"
+            confirm_button_callback = self.form_redaction_callback(action="Confirm", order_id=order_id, prev_msg_action="Edit")
+            confirm_button = InlineKeyboardButton(text=confirm_button_text, callback_data=confirm_button_callback)
+
+            reject_button_text = "❌"
+            reject_button_callback = self.form_redaction_callback(action="Reject", order_id=order_id, prev_msg_action="Edit")
+            reject_button = InlineKeyboardButton(text=reject_button_text, callback_data=reject_button_callback)
+            buttons += [[confirm_button, reject_button]]
+
+        return buttons
 
     def create_order_description_button(self, order):
         def get_status_emoji(order_status):
