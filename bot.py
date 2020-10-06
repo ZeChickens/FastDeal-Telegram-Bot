@@ -83,10 +83,12 @@ def start_bot(message):
 
 @bot.message_handler(commands=['orders'])
 def orders_list(message):
+    chat_id=message.chat.id
+    
     system.clear(message=message)
     system.update_client_interaction_time(message)
 
-    order.send_order_list(message=message)
+    order.send_order_list(chat_id=chat_id)
     
 
 @bot.callback_query_handler(func=lambda call: "Tag" in call.data)
