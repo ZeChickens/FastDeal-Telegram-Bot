@@ -334,7 +334,7 @@ class Dbo:
                                                   additional_info=query)
             print("{} {} failed to update(((".format(table, column))
 
-#TO DO
+#TODO
 #transfer to sql later
 class Message:
     def __init__(self):
@@ -382,10 +382,11 @@ class Message:
             "🕔 Бажаний проміжок часу\n"
             "📝 Вказівки до оформлення вашої реклами (прикріпити кнопку та ін.)"
         )
-        self.order_description_text = "<b>Текст</b>"
-        self.order_description_client_comment = "<b>Коментар замовника</b>"
-        self.order_description_redaction_comment = "<b>Коментар редакції</b>"
-        self.order_description_status = "<b>Статус: </b>"
+        self.order_description_text = "Текст"
+        self.order_description_client_comment = "Коментар замовника"
+        self.order_description_redaction_comment = "Коментар редакції"
+        self.order_description_post_link = "Пост"
+        self.order_description_status = "Статус:"
         self.order_status_notification = "У вашому замовленні відбулись зміни"
         self.order_status_redaction_rejected = "замовлення не пройшло перевірку редакції"
         self.order_canceled = "Замовлення успішно скасовано!"

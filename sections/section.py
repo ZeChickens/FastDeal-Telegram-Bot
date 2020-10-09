@@ -57,7 +57,6 @@ class Section:
         in_development_text = self.data.message.under_development
         self.bot.answer_callback_query(call.id, text=in_development_text)
 
-
     #######
     # Utils
     #######

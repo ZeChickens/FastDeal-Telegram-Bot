@@ -71,7 +71,7 @@ class Order(Section):
             markup.add(button)
 
         # if list is called from main menu than send "Back" button
-        if call is not None:
+        if call is not None and chat_id != self.data.REDACTION_CHAT_ID:
             back_button_callback = self.form_main_callback(action="Start", prev_msg_action="Edit")
             back_button = self.create_back_button(callback_data=back_button_callback)
             markup.add(back_button)
@@ -254,13 +254,18 @@ class Order(Section):
         ad_order_date = order.OrderDate
         order_status = self.data.get_order_status(where={"StatusID":order.Status})[0].Description
 
-        text += f"{self.data.message.order_description_text}\n"
+        text += f"<b>{self.data.message.order_description_text}</b>\n"
         text += f"{order.Text}\n"
         text += get_delimiter()
 
-        text += f"{self.data.message.order_description_client_comment}\n"
+        text += f"<b>{self.data.message.order_description_client_comment}</b>\n"
         text += f"{order.Comment}\n"
         text += get_delimiter()
+
+        if order.Status >= 2:
+            post_statistic = self.data.get_post_statistic(where={"PostStatisticID":order.PostStatisticID})[0]
+            post_statistic_link = post_statistic.PostLink
+            text += f"<b>{self.data.message.order_description_post_link}</b> - {post_statistic_link}\n"
 
         text += f"<b>{self.data.message.order_description_status}</b>{order_status}\n"
 
@@ -767,6 +772,32 @@ class Payment:
 
         return result
 
+    def api_verify(self):
+        #order_reference = self.update_order_reference()
+        orderReference = "verify1"
+
+        secret_key_array = [self.merchant_account, self.merchant_domain_name, orderReference, '1', self.currency]
+        merchant_signature = self.generate_secret_key(secret_key_array)
+        
+        transaction_type = "P2P_CREDIT"
+
+        data = {
+   			"merchantAccount": self.merchant_account,
+            "merchantDomainName": self.merchant_domain_name,
+  	 		"merchantSignature": merchant_signature,
+ 		  	"apiVersion": self.api_version,
+	  	 	"orderReference": orderReference,  
+            "amount": 1,
+            "currency": self.currency,   
+        }
+
+        data = json.dumps(data)
+
+        result = requests.post(url="https://secure.wayforpay.com/verify", data=data)
+        result = result.json()
+
+        return result
+
     #Not working - need to get rec_token
     def api_top_up(self, card_number, amount):
         order_reference = self.update_order_reference()
@@ -792,3 +823,4 @@ class Payment:
         result = requests.post(url=self.API_ENDPOINT, data=data).json()
 
         return result
+
