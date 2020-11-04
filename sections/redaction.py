@@ -61,7 +61,7 @@ class Redaction(Section):
         self.bot.send_message(chat_id=self.REDACTION_CHAT_ID, text=text)
 
         # client
-        #self.order.send_order_status_notification(chat_id=client_chat_id, order_id=order_id)
+        self.order.send_order_status_notification(chat_id=client_chat_id, order_id=order_id)
 
     def confirm_order(self, call, order_id):
         order = self.data.get_order(where={"OrderID":order_id})[0]

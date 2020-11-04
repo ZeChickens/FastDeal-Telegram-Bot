@@ -149,10 +149,10 @@ class Data:
                                      where=where, sign=signs, order_by=order_by) 
         return rows
 
-    def add_owner(self, chat_id, nickname, name, 
-                  surname, register_date, last_interaction_time):
+    def add_owner(self, chat_id, nickname, name, surname, 
+                  register_date, last_interaction_time, owner_account_id):
         values = [chat_id, nickname, name, surname, 
-                  register_date, last_interaction_time]
+                  register_date, last_interaction_time, owner_account_id]
 
         self.dbo.add_value(self.dbo.table_owner, *values)
         
@@ -161,6 +161,57 @@ class Data:
         value = [[v] for k, v in set_.items()]
         where, where_value = [[k, v] for k, v in where.items()][0]
         self.dbo.update_value(table=self.dbo.table_owner, column=col, value=value,
+                              where=where, where_value=where_value)
+
+    def get_owner_account(self, col=["*"], where=None, signs=["="], order_by=None):
+        rows = self.dbo.select_table(table=self.dbo.table_owner_account, values=col,
+                                     where=where, sign=signs, order_by=order_by) 
+        return rows
+
+    def add_owner_account(self, balance):
+        values = [balance]
+
+        self.dbo.add_value(self.dbo.table_owner_account, *values)
+        
+    def update_owner_account(self, set_=dict(), where=dict()):
+        col = [[k] for k, v in set_.items()]
+        value = [[v] for k, v in set_.items()]
+        where, where_value = [[k, v] for k, v in where.items()][0]
+        self.dbo.update_value(table=self.dbo.table_owner_account, column=col, value=value,
+                              where=where, where_value=where_value)
+
+    def get_owner_card(self, col=["*"], where=None, signs=["="], order_by=None):
+        rows = self.dbo.select_table(table=self.dbo.table_owner_card, values=col,
+                                     where=where, sign=signs, order_by=order_by) 
+        return rows
+
+    def add_owner_card(self, card_number, owner_account_id):
+        values = [card_number, owner_account_id]
+
+        self.dbo.add_value(self.dbo.table_owner_card, *values)
+        
+    def update_owner_card(self, set_=dict(), where=dict()):
+        col = [[k] for k, v in set_.items()]
+        value = [[v] for k, v in set_.items()]
+        where, where_value = [[k, v] for k, v in where.items()][0]
+        self.dbo.update_value(table=self.dbo.table_owner_card, column=col, value=value,
+                              where=where, where_value=where_value)
+
+    def get_withdraw(self, col=["*"], where=None, signs=["="], order_by=None):
+        rows = self.dbo.select_table(table=self.dbo.table_withdraw, values=col,
+                                     where=where, sign=signs, order_by=order_by) 
+        return rows
+
+    def add_withdraw(self, ammount, date, status, owner_card_id):
+        values = [ammount, date, status, owner_card_id]
+
+        self.dbo.add_value(self.dbo.table_withdraw, *values)
+        
+    def update_withdraw(self, set_=dict(), where=dict()):
+        col = [[k] for k, v in set_.items()]
+        value = [[v] for k, v in set_.items()]
+        where, where_value = [[k, v] for k, v in where.items()][0]
+        self.dbo.update_value(table=self.dbo.table_withdraw, column=col, value=value,
                               where=where, where_value=where_value)
 
     def get_tag(self, col=["*"], where=None, signs=["="], order_by=None):
@@ -219,6 +270,9 @@ class Dbo:
         self.table_payment = "Payment"
         self.table_post_statistic = "Post_Statistic"
         self.table_owner = "Owner"
+        self.table_owner_account = "OwnerAccount"
+        self.table_owner_card = "OwnerCard"
+        self.table_withraw = "Withdraw"
         self.table_tag = "Tag"
 
     def select_table(self, table, values, sign, where=None, order_by=None):

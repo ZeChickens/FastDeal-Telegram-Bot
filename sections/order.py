@@ -774,7 +774,7 @@ class Payment:
 
     def api_verify(self):
         #order_reference = self.update_order_reference()
-        orderReference = "verify1"
+        orderReference = "GC0000121"
 
         secret_key_array = [self.merchant_account, self.merchant_domain_name, orderReference, '1', self.currency]
         merchant_signature = self.generate_secret_key(secret_key_array)
@@ -800,9 +800,9 @@ class Payment:
 
     #Not working - need to get rec_token
     def api_top_up(self, card_number, amount):
-        order_reference = self.update_order_reference()
+        order_reference = "top_up_test_2"
 
-        secret_key_array = [self.merchant_account, order_reference, str(amount), self.currency, card_number]
+        secret_key_array = [self.merchant_account, order_reference, str(amount), self.currency, card_number, ""]
         merchant_signature = self.generate_secret_key(secret_key_array)
         
         transaction_type = "P2P_CREDIT"
@@ -815,7 +815,8 @@ class Payment:
 	  	 	"orderReference": order_reference,  
             "amount": amount,
             "currency": self.currency,   
-            "cardBeneficiary": card_number
+            "cardBeneficiary": card_number,
+            "rec2Token": ""
         }
 
         data = json.dumps(data)
@@ -823,4 +824,3 @@ class Payment:
         result = requests.post(url=self.API_ENDPOINT, data=data).json()
 
         return result
-
