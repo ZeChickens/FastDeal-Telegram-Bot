@@ -1,6 +1,8 @@
 import pyodbc
 from datetime import timedelta, date, datetime
 import error_logging
+import configparser
+
 
 class Data:
     def __init__(self, bot):
@@ -247,13 +249,12 @@ class Dbo:
     def _connect_to_database(self):
         #Computer DESKTOP-2IT0PLT
         #Laptop   DESKTOP-4T7IRV2
+        config = configparser.ConfigParser()
+        config.read('Settings.ini')
+
         print("Connecting to database...")
         try:
-            self.connection = pyodbc.connect('Driver={ODBC Driver 17 for SQL Server};'
-                                        'Server=104.154.69.146;'
-                                        'Database=FastDeal;'
-                                        'uid=sqlserver;'
-                                        'pwd=zeOrd@;')
+            self.connection = pyodbc.connect(config['SQL Server']['db'])
             print("Database connected succesfully!")
         except:
             raise ConnectionError

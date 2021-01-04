@@ -1,6 +1,5 @@
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sections.section import Section
-from inspect import currentframe
 
 class Tag(Section):
     def __init__(self, data):

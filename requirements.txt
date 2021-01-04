@@ -1,0 +1,2 @@
+pyTelegramBotAPI == 3.7.4
+pyodbc == 4.0.30
